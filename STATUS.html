@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Status App Pro</title>
+
+<style>
+body{
+  margin:0;
+  font-family:system-ui,Arial;
+  background:#0f172a;
+  color:#fff;
+}
+.container{
+  max-width:900px;
+  margin:auto;
+  padding:15px;
+}
+h1{font-size:22px;text-align:center;margin-bottom:10px}
+.card{
+  background:#1e293b;
+  border-radius:14px;
+  padding:12px;
+  margin-bottom:12px;
+}
+
+/* INPUT COMPACTO */
+.input-group{
+  display:flex;
+  gap:6px;
+}
+input,select{
+  padding:8px;
+  border-radius:8px;
+  border:none;
+  font-size:14px;
+}
+input{flex:2}
+select{flex:1}
+button{
+  border:none;
+  border-radius:8px;
+  padding:8px 10px;
+  cursor:pointer;
+}
+.add{background:#22c55e;color:#000}
+.del{background:#ef4444;color:#fff}
+
+.task{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#334155;
+  padding:10px;
+  border-radius:10px;
+  margin-bottom:6px;
+}
+.task-info{flex:1}
+.task-actions{display:flex;gap:5px}
+
+.badge{
+  font-size:11px;
+  padding:3px 6px;
+  border-radius:6px;
+}
+.p{background:#ef4444}
+.e{background:#f59e0b}
+.c{background:#22c55e;color:#000}
+
+.progress{
+  height:14px;
+  background:#1e293b;
+  border-radius:10px;
+  overflow:hidden;
+}
+.bar{
+  height:100%;
+  background:#22c55e;
+  width:0%;
+  text-align:center;
+  font-size:10px;
+}
+
+@media(max-width:600px){
+  h1{font-size:18px}
+  input,select,button{font-size:12px}
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>📊 Status</h1>
+
+  <!-- INPUT -->
+  <div class="card">
+    <div class="input-group">
+      <input id="taskName" placeholder="Nueva tarea">
+      <select id="taskStatus">
+        <option>Pendiente</option>
+        <option>En proceso</option>
+      </select>
+      <button class="add" onclick="addTask()">+</button>
+    </div>
+  </div>
+
+  <!-- PROGRESO -->
+  <div class="card">
+    <div class="progress"><div id="bar" class="bar">0%</div></div>
+  </div>
+
+  <!-- ACTIVAS -->
+  <div class="card">
+    <h3>Activas</h3>
+    <div id="active"></div>
+  </div>
+
+  <!-- HISTORIAL -->
+  <div class="card">
+    <h3>Historial</h3>
+    <div id="history"></div>
+  </div>
+</div>
+
+<script>
+let tasks = [];
+
+// 🔹 CONFIG JSONBIN (REEMPLAZAR)
+// const URL = "https://api.jsonbin.io/v3/b/TU_ID_BIN";
+const URL = "https://api.jsonbin.io/v3/b/69ef96e636566621a8fa0813";
+const KEY = "$2a$10$y5s3F5YdWIB9axb55/V4TuK6E/1Z5Sod/pyqxbn5H/aBLjoTAYapS";
+
+async function loadTasks(){
+  try{
+    let res = await fetch(URL+"/latest",{
+      headers:{"X-Master-Key":KEY}
+    });
+    let data = await res.json();
+    //tasks = data.record || [];
+    tasks = data.record.tasks || [];
+    render();
+  }catch{tasks=[];render();}
+}
+
+async function saveTasks(){
+  await fetch(URL,{
+    method:"PUT",
+    headers:{
+      "Content-Type":"application/json",
+      "X-Master-Key":KEY
+    },
+    //body:JSON.stringify(tasks)
+    body: JSON.stringify({ tasks: tasks })
+  });
+}
+
+function addTask(){
+  let name=document.getElementById("taskName").value;
+  if(!name) return;
+
+  tasks.push({name,status:"Pendiente"});
+  document.getElementById("taskName").value="";
+  saveTasks();
+  render();
+}
+
+function del(i){
+  tasks.splice(i,1);
+  saveTasks();
+  render();
+}
+
+function change(i,val){
+  tasks[i].status=val;
+  saveTasks();
+  render();
+}
+
+function render(){
+  let active=document.getElementById("active");
+  let history=document.getElementById("history");
+  active.innerHTML="";
+  history.innerHTML="";
+
+  let done=0;
+
+  tasks.forEach((t,i)=>{
+    if(t.status==="Completado") done++;
+
+    let div=document.createElement("div");
+    div.className="task";
+
+    div.innerHTML=`
+      <div class="task-info">
+        ${t.name}<br>
+        <span class="badge ${t.status==='Pendiente'?'p':t.status==='En proceso'?'e':'c'}">${t.status}</span>
+      </div>
+      <div class="task-actions">
+        <select onchange="change(${i},this.value)">
+          <option ${t.status==='Pendiente'?'selected':''}>Pendiente</option>
+          <option ${t.status==='En proceso'?'selected':''}>En proceso</option>
+          <option ${t.status==='Completado'?'selected':''}>Completado</option>
+        </select>
+        <button class="del" onclick="del(${i})">✕</button>
+      </div>
+    `;
+
+    if(t.status==="Completado"){
+      history.appendChild(div);
+    }else{
+      active.appendChild(div);
+    }
+  });
+
+  let percent = tasks.length?Math.round(done/tasks.length*100):0;
+  let bar=document.getElementById("bar");
+  bar.style.width=percent+"%";
+  bar.textContent=percent+"%";
+}
+
+loadTasks();
+</script>
+</body>
+</html>
